@@ -4,14 +4,18 @@ import { allowanceSummary, monthView, savingsDepositedInMonth } from '../js/stat
 import { parseBackup, serializeBackup } from '../js/backup.js';
 import { defaultSettings } from '../js/categories.js';
 
-test('还能存 subtracts both spending and money already saved this month', () => {
-  const plan = allowanceSummary({ allowance: 200000, budget: 180000, spent: 3000, deposited: 5000 });
-  assert.equal(plan.planned, 20000);
-  assert.equal(plan.remaining, 192000);
-  assert.equal(plan.deposited, 5000);
+test('还能存 reserves the budget, and only overspending eats further into savings', () => {
+  const plan = allowanceSummary({ allowance: 200000, budget: 150000, spent: 3000, deposited: 5000 });
+  assert.equal(plan.planned, 50000);
+  assert.equal(plan.remaining, 45000);
+  const overspent = allowanceSummary({ allowance: 200000, budget: 150000, spent: 160000, deposited: 5000 });
+  assert.equal(overspent.remaining, 200000 - 160000 - 5000);
   const over = allowanceSummary({ allowance: 200000, budget: 250000, spent: 180000, deposited: 30000 });
   assert.equal(over.planned, -50000);
-  assert.equal(over.remaining, -10000);
+  assert.equal(over.remaining, -80000);
+  const noBudget = allowanceSummary({ allowance: 200000, budget: 0, spent: 3000, deposited: 5000 });
+  assert.equal(noBudget.budgetSet, false);
+  assert.equal(noBudget.remaining, 192000);
   assert.equal(allowanceSummary({ allowance: null, budget: 180000, spent: 100, deposited: 0 }).set, false);
 });
 

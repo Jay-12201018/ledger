@@ -1,5 +1,5 @@
 /* Cache version. Bump this when shipped files change so phones pick up the update. */
-const CACHE = 'ledger-v5';
+const CACHE = 'ledger-v6';
 
 const ASSETS = [
   './',

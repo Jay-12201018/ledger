@@ -310,8 +310,8 @@ function allowanceCard(plan) {
       <div><span>本月还能存</span><b class="${remainCls}">${esc(formatYuan(plan.remaining))}</b></div>
       <div><span>本月已存</span><b>${esc(formatYuan(plan.deposited))}</b></div>
     </div>
-    <p class="hint">按目前花销算，这个月最多还能存这么多。存入不算花掉。</p>
-    ${plan.remaining < 0 ? '<p class="hint warn-text">花掉的加上已经存入的，已经超过这个月的生活费了。</p>' : ''}
+    <p class="hint">预算留给花销，剩下的才是能存的；花超预算的部分会从这里扣。存入不算花掉。</p>
+    ${plan.remaining < 0 ? '<p class="hint warn-text">花超预算的部分，加上已经存入的，已经把能存的用完了。</p>' : ''}
   </section>`;
 }
 

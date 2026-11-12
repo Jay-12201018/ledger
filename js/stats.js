@@ -60,7 +60,7 @@ export function allowanceSummary({ allowance, budget, spent, deposited }) {
     budget: budgetSet ? budget : 0,
     budgetSet,
     planned: budgetSet ? allowance - budget : null,
-    remaining: allowance - (spent || 0) - (deposited || 0),
+    remaining: allowance - (budgetSet ? Math.max(budget, spent || 0) : (spent || 0)) - (deposited || 0),
     deposited: deposited || 0,
     spent: spent || 0,
   };
