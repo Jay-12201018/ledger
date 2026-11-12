@@ -371,11 +371,10 @@ async function saveDeposit(force) {
   const goal = state.settings.savings;
   if (!goal) return;
   const room = state.sheet.room;
-  const savedMonth = state.sheet.savedMonth || 0;
-  if (!force && room != null && savedMonth + amount > room) {
+  if (!force && room != null && amount > room) {
     state.dialog = {
       title: '这个月可能存多了',
-      message: `本月实际可存 ${formatYuan(room)}，存入后这个月一共 ${formatYuan(savedMonth + amount)}。可以存，只是比能存的多一点。`,
+      message: `这次想存 ${formatYuan(amount)}，本月还能存 ${formatYuan(room)}。可以存，只是比还能存的多一点。`,
       confirmText: '仍然存入',
       danger: false,
       action: 'deposit-over',
@@ -871,7 +870,7 @@ async function handle(act, el) {
       type: 'deposit',
       amount: '',
       touched: false,
-      room: plan.set ? plan.actual : null,
+      room: plan.set ? plan.remaining : null,
       savedMonth: plan.deposited,
     };
     render({ keepScroll: true });

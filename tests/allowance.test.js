@@ -4,14 +4,14 @@ import { allowanceSummary, monthView, savingsDepositedInMonth } from '../js/stat
 import { parseBackup, serializeBackup } from '../js/backup.js';
 import { defaultSettings } from '../js/categories.js';
 
-test('planned save is allowance minus budget, actual save is allowance minus spent', () => {
-  const plan = allowanceSummary({ allowance: 250000, budget: 180000, spent: 80000, deposited: 20000 });
-  assert.equal(plan.planned, 70000);
-  assert.equal(plan.actual, 170000);
-  assert.equal(plan.deposited, 20000);
-  const over = allowanceSummary({ allowance: 200000, budget: 250000, spent: 210000, deposited: 0 });
+test('还能存 subtracts both spending and money already saved this month', () => {
+  const plan = allowanceSummary({ allowance: 200000, budget: 180000, spent: 3000, deposited: 5000 });
+  assert.equal(plan.planned, 20000);
+  assert.equal(plan.remaining, 192000);
+  assert.equal(plan.deposited, 5000);
+  const over = allowanceSummary({ allowance: 200000, budget: 250000, spent: 180000, deposited: 30000 });
   assert.equal(over.planned, -50000);
-  assert.equal(over.actual, -10000);
+  assert.equal(over.remaining, -10000);
   assert.equal(allowanceSummary({ allowance: null, budget: 180000, spent: 100, deposited: 0 }).set, false);
 });
 
@@ -38,7 +38,7 @@ test('savings deposits are not spending, and only this month counts as 已存', 
     deposited: savingsDepositedInMonth(savings, 2026, 11),
   });
   assert.equal(plan.planned, 70000);
-  assert.equal(plan.actual, 70000);
+  assert.equal(plan.remaining, 50000);
   assert.equal(plan.deposited, 20000);
 });
 

@@ -294,7 +294,7 @@ function allowanceCard(plan) {
   const planned = plan.planned == null
     ? '<b class="muted">未设置</b>'
     : `<b class="${plan.planned < 0 ? 'over' : 'ok'}">${esc(formatYuan(plan.planned))}</b>`;
-  const actualCls = plan.actual < 0 ? 'over' : 'ok';
+  const remainCls = plan.remaining < 0 ? 'over' : 'ok';
   return `<section class="card allow">
     <div class="card-h">这个月能存下多少</div>
     <div class="allow-grid">
@@ -307,10 +307,11 @@ function allowanceCard(plan) {
       <em>${plan.planned != null && plan.planned < 0 ? '预算比生活费高，按预算来花这个月存不下' : '生活费 − 月预算'}</em>
     </div>
     <div class="allow-grid">
-      <div><span>本月实际可存</span><b class="${actualCls}">${esc(formatYuan(plan.actual))}</b></div>
+      <div><span>本月还能存</span><b class="${remainCls}">${esc(formatYuan(plan.remaining))}</b></div>
       <div><span>本月已存</span><b>${esc(formatYuan(plan.deposited))}</b></div>
     </div>
-    <p class="hint">实际可存 = 生活费 − 本月已花。存入不算花掉。</p>
+    <p class="hint">按目前花销算，这个月最多还能存这么多。存入不算花掉。</p>
+    ${plan.remaining < 0 ? '<p class="hint warn-text">花掉的加上已经存入的，已经超过这个月的生活费了。</p>' : ''}
   </section>`;
 }
 
@@ -656,7 +657,7 @@ function depositSheet(s) {
       <span class="icon-btn placeholder"></span>
     </div>
     <label class="field"><span>金额（元）</span><input data-field="amount" inputmode="decimal" placeholder="例如 100" value="${esc(s.amount || '')}"></label>
-    ${s.room != null ? `<p class="hint tight">本月实际可存 ${esc(formatYuan(s.room))}，本月已存 ${esc(formatYuan(s.savedMonth || 0))}。存入不会算进已花。</p>` : ''}
+    ${s.room != null ? `<p class="hint tight">本月还能存 ${esc(formatYuan(s.room))}。超过这个数会提醒你，仍然可以存。存入不算花掉。</p>` : ''}
     <button type="button" class="primary block" data-act="save-deposit">存入</button>`);
 }
 
