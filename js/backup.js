@@ -69,15 +69,21 @@ export function parseBackup(text) {
   const s = isObj(data.settings) ? data.settings : {};
   const settings = {
     ...base,
-    monthlyBudget: s.monthlyBudget == null ? null : Math.round(Number(s.monthlyBudget)) || null,
+    monthlyBudget: positiveCents(s.monthlyBudget),
+    monthlyAllowance: positiveCents(s.monthlyAllowance),
     categoryBudgets: isObj(s.categoryBudgets) ? s.categoryBudgets : {},
     savings: normalizeSavings(s.savings),
     lastBackupAt: s.lastBackupAt || null,
     lastPayMethod: s.lastPayMethod || '',
     key: 'settings',
   };
-  if (settings.monthlyBudget != null && settings.monthlyBudget <= 0) settings.monthlyBudget = null;
   return { ok: true, data: { categories, records, settings } };
+}
+
+function positiveCents(value) {
+  if (value == null || value === '') return null;
+  const n = Math.round(Number(value));
+  return n > 0 ? n : null;
 }
 
 function normalizeSavings(s) {

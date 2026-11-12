@@ -37,6 +37,35 @@ export function dailyExpense(records, y, m, today = new Date()) {
   return { buckets, startISO: b.startISO, endLabelISO: endISO, isCurrent };
 }
 
+export function savingsDepositedInMonth(savings, y, m) {
+  const start = new Date(y, m - 1, 1).getTime();
+  const end = new Date(y, m, 1).getTime();
+  let total = 0;
+  for (const d of savings?.deposits || []) {
+    if (d.at >= start && d.at < end) total += d.amount || 0;
+  }
+  return total;
+}
+
+/** How much of the monthly allowance can be saved. Deposits are not spending. */
+export function allowanceSummary({ allowance, budget, spent, deposited }) {
+  const allowanceSet = allowance > 0;
+  const budgetSet = budget > 0;
+  if (!allowanceSet) {
+    return { set: false, deposited: deposited || 0, spent: spent || 0, budgetSet };
+  }
+  return {
+    set: true,
+    allowance,
+    budget: budgetSet ? budget : 0,
+    budgetSet,
+    planned: budgetSet ? allowance - budget : null,
+    actual: allowance - (spent || 0),
+    deposited: deposited || 0,
+    spent: spent || 0,
+  };
+}
+
 export function monthView(records, categories, settings, y, m) {
   const b = monthBounds(y, m);
   const list = inRange(records, b.startISO, b.endISO);

@@ -5,7 +5,8 @@ import {
 } from './categories.js';
 import { commitCents, displayText, emptyKeypad, expressionText, keypadFromCents, pressKey } from './keypad.js';
 import { isoDate, shiftAnchor } from './dates.js';
-import { parseYuanField, centsToYuanInput } from './money.js';
+import { allowanceSummary, monthView, savingsDepositedInMonth } from './stats.js';
+import { parseYuanField, centsToYuanInput, formatYuan } from './money.js';
 import { parseBillBuffer } from './import-parse.js';
 import { parseBackup, serializeBackup } from './backup.js';
 
@@ -277,6 +278,7 @@ function openBudget() {
   }
   state.sheet = {
     type: 'budget',
+    allowance: state.settings.monthlyAllowance ? centsToYuanInput(state.settings.monthlyAllowance) : '',
     total: state.settings.monthlyBudget ? centsToYuanInput(state.settings.monthlyBudget) : '',
     cats,
     touched: false,
@@ -286,9 +288,14 @@ function openBudget() {
 
 async function saveBudget() {
   const s = state.sheet;
+  const allowance = parseYuanField(s.allowance);
+  if (allowance === undefined) {
+    toast('生活费请填数字，比如 2500');
+    return;
+  }
   const total = parseYuanField(s.total);
   if (total === undefined) {
-    toast('总预算请填数字，比如 2000');
+    toast('总预算请填数字，比如 1800');
     return;
   }
   const categoryBudgets = {};
@@ -300,7 +307,8 @@ async function saveBudget() {
     }
     if (v) categoryBudgets[id] = v;
   }
-  state.settings.monthlyBudget = total;
+  state.settings.monthlyAllowance = allowance > 0 ? allowance : null;
+  state.settings.monthlyBudget = total > 0 ? total : null;
   state.settings.categoryBudgets = categoryBudgets;
   await db.putSettings(state.settings);
   state.sheet = null;
@@ -354,17 +362,31 @@ async function saveSavings() {
   toast('存钱目标已保存');
 }
 
-async function saveDeposit() {
-  const amount = parseYuanField(state.sheet.amount);
+async function saveDeposit(force) {
+  const amount = parseYuanField(state.sheet?.amount);
   if (!amount) {
     toast('请输入要存入的金额');
     return;
   }
-  const s = state.settings.savings;
-  if (!s) return;
-  s.saved += amount;
-  s.deposits = [{ id: newId(), amount, at: Date.now() }, ...(s.deposits || [])].slice(0, 50);
+  const goal = state.settings.savings;
+  if (!goal) return;
+  const room = state.sheet.room;
+  const savedMonth = state.sheet.savedMonth || 0;
+  if (!force && room != null && savedMonth + amount > room) {
+    state.dialog = {
+      title: '这个月可能存多了',
+      message: `本月实际可存 ${formatYuan(room)}，存入后这个月一共 ${formatYuan(savedMonth + amount)}。可以存，只是比能存的多一点。`,
+      confirmText: '仍然存入',
+      danger: false,
+      action: 'deposit-over',
+    };
+    render({ keepScroll: true });
+    return;
+  }
+  goal.saved += amount;
+  goal.deposits = [{ id: newId(), amount, at: Date.now() }, ...(goal.deposits || [])].slice(0, 50);
   await db.putSettings(state.settings);
+  state.dialog = null;
   state.sheet = null;
   toast(`已存入 ${centsToYuanInput(amount)} 元`);
 }
@@ -636,6 +658,11 @@ async function onDialogOk() {
     await deleteCat(d.payload.id, d.payload.targetId);
     return;
   }
+  if (d.action === 'deposit-over') {
+    state.dialog = null;
+    await saveDeposit(true);
+    return;
+  }
   if (d.action === 'delete-savings') {
     state.settings.savings = null;
     await db.putSettings(state.settings);
@@ -829,7 +856,24 @@ async function handle(act, el) {
     return;
   }
   if (act === 'deposit') {
-    state.sheet = { type: 'deposit', amount: '', touched: false };
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth() + 1;
+    const spent = monthView(state.records, state.categories, state.settings, y, m).expense;
+    const allowance = state.settings.monthlyAllowance;
+    const plan = allowanceSummary({
+      allowance,
+      budget: state.settings.monthlyBudget,
+      spent,
+      deposited: savingsDepositedInMonth(state.settings.savings, y, m),
+    });
+    state.sheet = {
+      type: 'deposit',
+      amount: '',
+      touched: false,
+      room: plan.set ? plan.actual : null,
+      savedMonth: plan.deposited,
+    };
     render({ keepScroll: true });
     return;
   }
@@ -1036,6 +1080,9 @@ async function boot() {
     }
     state.settings = loaded.settings ? { ...defaultSettings(), ...loaded.settings, key: 'settings' } : defaultSettings();
     state.settings.categoryBudgets = state.settings.categoryBudgets || {};
+    state.settings.monthlyAllowance = state.settings.monthlyAllowance > 0
+      ? Math.round(state.settings.monthlyAllowance)
+      : null;
     if (!loaded.settings) await db.putSettings(state.settings);
     const stripped = state.categories.filter((c) => Object.prototype.hasOwnProperty.call(c, 'isFallback'));
     for (const c of stripped) delete c.isFallback;

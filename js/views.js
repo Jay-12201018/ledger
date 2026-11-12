@@ -7,6 +7,7 @@ import { displayText, expressionText } from './keypad.js';
 import { PAY_METHODS, payName, safeColor, safeIcon, PALETTE } from './categories.js';
 import {
   monthView, dailyExpense, categoryShares, groupByDay, dayTotals, inRange, sumType,
+  allowanceSummary, savingsDepositedInMonth,
 } from './stats.js';
 import { FLAG_LABEL } from './import-parse.js';
 
@@ -252,16 +253,26 @@ function catDetailPage(state) {
 
 function budgetPage(state) {
   const today = new Date();
-  const view = monthView(state.records, state.categories, state.settings, today.getFullYear(), today.getMonth() + 1);
+  const y = today.getFullYear();
+  const m = today.getMonth() + 1;
+  const view = monthView(state.records, state.categories, state.settings, y, m);
   const savings = state.settings.savings;
+  const plan = allowanceSummary({
+    allowance: state.settings.monthlyAllowance,
+    budget: state.settings.monthlyBudget,
+    spent: view.expense,
+    deposited: savingsDepositedInMonth(savings, y, m),
+  });
+  const configured = view.budget || plan.set;
   return `<header class="top">
       <h1>预算</h1>
-      <button type="button" class="text-btn" data-act="edit-budget">${view.budget ? '编辑' : '设置'}</button>
+      <button type="button" class="text-btn" data-act="edit-budget">${configured ? '编辑' : '设置'}</button>
     </header>
     ${view.budget ? budgetHero(view) : `<section class="card empty-card">
       <p>先给每个月定一个花费上限</p>
       <button type="button" class="primary" data-act="edit-budget">设置月预算</button>
     </section>`}
+    ${allowanceCard(plan)}
     ${view.banner ? `<div class="banner ${view.bannerLevel}">${svg('warning', 18)}<p>${esc(view.banner)}</p></div>` : ''}
     <section class="card">
       <div class="card-h"><span>分类预算</span><button type="button" class="text-btn" data-act="edit-budget">设置</button></div>
@@ -271,6 +282,36 @@ function budgetPage(state) {
       <span class="bubble teal">${svg('wallet', 18)}</span>
       <span class="tx-main"><span class="tx-title">设一个存钱目标</span><span class="tx-sub">比如新耳机、回家的车票</span></span>
     </button>`}`;
+}
+
+function allowanceCard(plan) {
+  if (!plan.set) {
+    return `<button type="button" class="card allow-empty" data-act="edit-budget">
+      <span class="tx-title">填上每月生活费</span>
+      <span class="tx-sub">就能看出这个月计划能存多少、实际还剩多少</span>
+    </button>`;
+  }
+  const planned = plan.planned == null
+    ? '<b class="muted">未设置</b>'
+    : `<b class="${plan.planned < 0 ? 'over' : 'ok'}">${esc(formatYuan(plan.planned))}</b>`;
+  const actualCls = plan.actual < 0 ? 'over' : 'ok';
+  return `<section class="card allow">
+    <div class="card-h">这个月能存下多少</div>
+    <div class="allow-grid">
+      <div><span>每月生活费</span><b>${esc(formatYuan(plan.allowance))}</b></div>
+      <div><span>月预算</span><b>${plan.budgetSet ? esc(formatYuan(plan.budget)) : '未设置'}</b></div>
+    </div>
+    <div class="allow-plan">
+      <span>计划可存</span>
+      ${planned}
+      <em>${plan.planned != null && plan.planned < 0 ? '预算比生活费高，按预算来花这个月存不下' : '生活费 − 月预算'}</em>
+    </div>
+    <div class="allow-grid">
+      <div><span>本月实际可存</span><b class="${actualCls}">${esc(formatYuan(plan.actual))}</b></div>
+      <div><span>本月已存</span><b>${esc(formatYuan(plan.deposited))}</b></div>
+    </div>
+    <p class="hint">实际可存 = 生活费 − 本月已花。存入不算花掉。</p>
+  </section>`;
 }
 
 function budgetHero(view) {
@@ -577,9 +618,13 @@ function budgetSheet(state, s) {
       <span class="icon-btn placeholder"></span>
     </div>
     <p class="hint tight">这一档每个月都生效，直到你再改。只统计支出。</p>
-    <label class="field"><span>每月总预算（元）</span>
-      <input data-field="total" inputmode="decimal" placeholder="不设就留空，例如 2000" value="${esc(s.total)}">
+    <label class="field"><span>每月生活费（元）</span>
+      <input data-field="allowance" inputmode="decimal" placeholder="不设就留空，例如 2500" value="${esc(s.allowance || '')}">
     </label>
+    <label class="field"><span>每月总预算（元）</span>
+      <input data-field="total" inputmode="decimal" placeholder="不设就留空，例如 1800" value="${esc(s.total)}">
+    </label>
+    <p class="hint tight">生活费是每个月到手的钱，预算是打算花掉的上限。相减就是计划能存下的。预算可以比生活费高。</p>
     <div class="field-label">分类预算（元，可留空）</div>
     ${cats.map((c) => `<label class="field inline">
       ${bubble(c, 16)}
@@ -611,6 +656,7 @@ function depositSheet(s) {
       <span class="icon-btn placeholder"></span>
     </div>
     <label class="field"><span>金额（元）</span><input data-field="amount" inputmode="decimal" placeholder="例如 100" value="${esc(s.amount || '')}"></label>
+    ${s.room != null ? `<p class="hint tight">本月实际可存 ${esc(formatYuan(s.room))}，本月已存 ${esc(formatYuan(s.savedMonth || 0))}。存入不会算进已花。</p>` : ''}
     <button type="button" class="primary block" data-act="save-deposit">存入</button>`);
 }
 

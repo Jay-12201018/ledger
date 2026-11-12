@@ -143,6 +143,7 @@ export function defaultSettings() {
   return {
     key: 'settings',
     monthlyBudget: null,
+    monthlyAllowance: null,
     categoryBudgets: {},
     savings: null,
     lastBackupAt: null,
