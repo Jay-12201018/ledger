@@ -1,4 +1,4 @@
-import { buildPresetCategories, defaultSettings } from './categories.js';
+import { defaultSettings } from './categories.js';
 
 const APP = '个人账本';
 
@@ -39,20 +39,8 @@ export function parseBackup(text) {
       name: String(c.name).slice(0, 12),
       icon: String(c.icon || 'more'),
       color: String(c.color || '#9AA3AF'),
-      isFallback: !!c.isFallback,
       order: Number.isFinite(c.order) ? c.order : 0,
     });
-  }
-  for (const type of ['expense', 'income']) {
-    if (!categories.some((c) => c.type === type && c.isFallback)) {
-      const preset = buildPresetCategories().find((c) => c.type === type && c.isFallback);
-      if (preset && !categories.some((c) => c.type === type && c.name === '其他')) categories.push(preset);
-      else if (preset) {
-        const hit = categories.find((c) => c.type === type && c.name === '其他');
-        if (hit) hit.isFallback = true;
-        else categories.push(preset);
-      }
-    }
   }
   const records = [];
   for (const r of data.records) {

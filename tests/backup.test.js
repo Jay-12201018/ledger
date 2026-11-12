@@ -25,13 +25,16 @@ test('rejects files that are not a ledger backup', () => {
   assert.equal(parseBackup('{"app":"个人账本","version":2,"categories":[],"records":[]}').ok, false);
 });
 
-test('drops broken rows and keeps a fallback category', () => {
+test('restore keeps a renamed category and does not invent a protected fallback', () => {
   const parsed = parseBackup(JSON.stringify({
     app: '个人账本',
     version: 1,
-    categories: [{ id: 'c1', type: 'expense', name: '餐饮', icon: 'utensils', color: '#FF8A34', order: 0 }],
+    categories: [
+      { id: 'c1', type: 'expense', name: '餐饮', icon: 'utensils', color: '#FF8A34', order: 0 },
+      { id: 'old-other', type: 'expense', name: '🧃', icon: 'more', color: '#9AA3AF', order: 1, isFallback: true },
+    ],
     records: [
-      { id: 'ok', type: 'expense', amount: 100, categoryId: 'c1', date: '2026-11-01' },
+      { id: 'ok', type: 'expense', amount: 100, categoryId: 'old-other', date: '2026-11-01' },
       { id: 'bad', type: 'expense', amount: 0, categoryId: 'c1', date: '2026-11-01' },
       { id: 'nodate', type: 'income', amount: 100, categoryId: 'c1', date: '' },
     ],
@@ -39,6 +42,9 @@ test('drops broken rows and keeps a fallback category', () => {
   }));
   assert.equal(parsed.ok, true);
   assert.equal(parsed.data.records.length, 1);
-  assert.ok(parsed.data.categories.some((c) => c.type === 'expense' && c.isFallback));
-  assert.ok(parsed.data.categories.some((c) => c.type === 'income' && c.isFallback));
+  assert.equal(parsed.data.records[0].categoryId, 'old-other');
+  assert.equal(parsed.data.categories.length, 2);
+  assert.equal(parsed.data.categories.find((c) => c.id === 'old-other').name, '🧃');
+  assert.equal(parsed.data.categories.some((c) => c.isFallback), false);
+  assert.equal(parsed.data.categories.some((c) => c.type === 'income'), false);
 });

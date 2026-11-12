@@ -376,7 +376,7 @@ function categoriesPage(state) {
           <span class="cat-name">${esc(c.name)}</span>
           <span class="cat-count">${count} 笔</span>
           <button type="button" class="icon-btn" data-act="cat-edit" data-id="${esc(c.id)}" aria-label="编辑">${svg('pencil', 18)}</button>
-          ${c.isFallback ? '' : `<button type="button" class="icon-btn danger" data-act="cat-delete" data-id="${esc(c.id)}" aria-label="删除">${svg('trash', 18)}</button>`}
+          <button type="button" class="icon-btn danger" data-act="cat-delete" data-id="${esc(c.id)}" aria-label="删除">${svg('trash', 18)}</button>
           <button type="button" class="icon-btn grip" data-drag="1" aria-label="拖动排序">${svg('grip', 18)}</button>
         </div>`;
       }).join('')}
@@ -458,9 +458,9 @@ function previewRow(r, i, state) {
       <div class="imp-title">${esc(title)}${badges}</div>
       <div class="imp-sub">${esc(shortMD(r.date, r.time))} · ${esc(pay)}</div>
       <label class="imp-cat">分类
-        <select data-field="imp-cat" data-i="${i}">
+        ${cats.length ? `<select data-field="imp-cat" data-i="${i}">
           ${cats.map((c) => `<option value="${esc(c.id)}" ${c.id === r.categoryId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
-        </select>
+        </select>` : '<span>还没有分类，请先新增</span>'}
       </label>
     </div>
     <div class="imp-amt ${r.type}">${esc(amt)}</div>
@@ -487,6 +487,7 @@ function sheetHtml(state) {
   if (s.type === 'deposit') return depositSheet(s);
   if (s.type === 'month') return monthSheet(state, s);
   if (s.type === 'backup') return backupSheet(s);
+  if (s.type === 'moveCat') return moveCatSheet(state, s);
   return '';
 }
 
@@ -630,6 +631,24 @@ function monthSheet(state, s) {
         return `<button type="button" class="mbtn ${on ? 'on' : ''}" data-act="month-pick" data-m="${m}">${m}月</button>`;
       }).join('')}
     </div>`);
+}
+
+function moveCatSheet(state, s) {
+  const others = state.categories
+    .filter((c) => c.type === s.catType && c.id !== s.id)
+    .sort((a, b) => a.order - b.order);
+  return sheetWrap(`<div class="sheet-bar">
+      <button type="button" class="icon-btn" data-act="sheet-close" aria-label="取消">${svg('close', 20)}</button>
+      <h2>删除「${esc(s.name)}」</h2>
+      <span class="icon-btn placeholder"></span>
+    </div>
+    <p class="lead">有 ${s.count} 笔账单在用它。要改记到哪个分类？关掉这个窗口就不会删除。</p>
+    <div class="move-list">
+      ${others.map((c) => `<button type="button" class="move-opt ${c.id === s.targetId ? 'on' : ''}" data-act="move-target" data-id="${esc(c.id)}">
+        ${bubble(c, 16)}<span>${esc(c.name)}</span>
+      </button>`).join('')}
+    </div>
+    <button type="button" class="primary block" data-act="confirm-move-cat">删除并转移</button>`);
 }
 
 function backupSheet(s) {

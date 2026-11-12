@@ -407,6 +407,15 @@ img, svg { display: block; }
   border: none; background: #F4F6F8; border-radius: 999px; min-height: 36px; padding: 0 12px; font-size: 14px;
 }
 .pay-pop button.on { background: var(--teal-soft); color: var(--teal); font-weight: 700; }
+.move-list { max-height: 46dvh; overflow: auto; padding-bottom: 8px; }
+.move-opt {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  border: none; background: #F4F6F8; border-radius: 14px;
+  min-height: 52px; padding: 8px 12px; margin: 6px 0;
+  font-size: 16px; font-weight: 600; text-align: left;
+}
+.move-opt .bubble { width: 32px; height: 32px; border-radius: 11px; }
+.move-opt.on { background: var(--teal-soft); box-shadow: inset 0 0 0 2px var(--teal); }
 .link-danger {
   border: none; background: none; color: var(--red); font-size: 14px; padding: 4px 0 8px; font-weight: 600;
 }

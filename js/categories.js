@@ -25,7 +25,7 @@ export function safeIcon(name) {
   return hasIcon(name) ? name : 'more';
 }
 
-/** Preset expense categories, in 记一笔 order. 其他 is the fallback and cannot be deleted. */
+/** Preset categories, in 记一笔 order. 其他 is an ordinary preset and can be renamed or deleted. */
 export function presetBlueprints() {
   return [
     { type: 'expense', name: '餐饮', icon: 'utensils', color: '#FF8A34' },
@@ -33,12 +33,12 @@ export function presetBlueprints() {
     { type: 'expense', name: '学习', icon: 'book', color: '#7C6BF5' },
     { type: 'expense', name: '娱乐', icon: 'film', color: '#FF6B9A' },
     { type: 'expense', name: '日用', icon: 'bag', color: '#2EC9A0' },
-    { type: 'expense', name: '其他', icon: 'more', color: '#9AA3AF', isFallback: true },
+    { type: 'expense', name: '其他', icon: 'more', color: '#9AA3AF' },
     { type: 'income', name: '生活费', icon: 'wallet', color: '#2EC9A0' },
     { type: 'income', name: '兼职', icon: 'briefcase', color: '#4C8DFF' },
     { type: 'income', name: '奖助学金', icon: 'award', color: '#7C6BF5' },
     { type: 'income', name: '红包', icon: 'gift', color: '#FF6B6B' },
-    { type: 'income', name: '其他', icon: 'more', color: '#9AA3AF', isFallback: true },
+    { type: 'income', name: '其他', icon: 'more', color: '#9AA3AF' },
   ];
 }
 
@@ -55,7 +55,6 @@ export function buildPresetCategories() {
     name: b.name,
     icon: b.icon,
     color: b.color,
-    isFallback: !!b.isFallback,
     order: order[b.type]++,
   }));
 }
@@ -105,12 +104,28 @@ export function suggestCategoryName({ type, text, kind }) {
   return '其他';
 }
 
+export function categoriesOfType(categories, type) {
+  const kind = type === 'income' ? 'income' : 'expense';
+  return categories.filter((c) => c.type === kind).slice().sort((a, b) => a.order - b.order);
+}
+
+/** Unknown import labels land on the first category of that type. The preview can still change it. */
 export function resolveCategoryId(name, type, categories) {
-  const list = categories.filter((c) => c.type === (type === 'income' ? 'income' : 'expense'));
+  const list = categoriesOfType(categories, type);
   const hit = list.find((c) => c.name === name);
   if (hit) return hit.id;
-  const fb = list.find((c) => c.isFallback) || list[list.length - 1];
-  return fb ? fb.id : '';
+  return list[0] ? list[0].id : '';
+}
+
+/**
+ * How deleting a category should proceed.
+ * action: 'delete' (no records), 'move' (pick another category), 'blocked' (records, but nothing to move them to).
+ */
+export function categoryDeleteChoice(cat, categories, recordCount) {
+  const others = categoriesOfType(categories, cat.type).filter((c) => c.id !== cat.id);
+  if (recordCount > 0 && others.length === 0) return { action: 'blocked', others };
+  if (recordCount > 0) return { action: 'move', others };
+  return { action: 'delete', others };
 }
 
 export function mapPayMethod(raw, source) {

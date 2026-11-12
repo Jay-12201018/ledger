@@ -1,7 +1,7 @@
 import { renderApp } from './views.js';
 import * as db from './db.js';
 import {
-  buildPresetCategories, defaultSettings, newId, resolveCategoryId,
+  buildPresetCategories, categoryDeleteChoice, defaultSettings, newId, resolveCategoryId,
 } from './categories.js';
 import { commitCents, displayText, emptyKeypad, expressionText, keypadFromCents, pressKey } from './keypad.js';
 import { isoDate, shiftAnchor } from './dates.js';
@@ -387,11 +387,12 @@ async function saveCategory() {
     cat.name = name;
     cat.color = s.color;
     cat.icon = s.icon;
+    delete cat.isFallback;
     await db.putCategory(cat);
   } else {
     const order = state.categories.filter((c) => c.type === s.catType).length;
     cat = {
-      id: newId(), type: s.catType, name, color: s.color, icon: s.icon, isFallback: false, order,
+      id: newId(), type: s.catType, name, color: s.color, icon: s.icon, order,
     };
     state.categories.push(cat);
     await db.putCategory(cat);
@@ -408,20 +409,39 @@ async function saveCategory() {
   toast('分类已保存');
 }
 
-async function confirmDeleteCat(id) {
+function confirmDeleteCat(id) {
   const cat = state.categories.find((c) => c.id === id);
-  if (!cat || cat.isFallback) {
-    toast('「其他」要留着接收被删分类的账单');
+  if (!cat) return;
+  const n = state.records.filter((r) => r.categoryId === id).length;
+  const choice = categoryDeleteChoice(cat, state.categories, n);
+  const kind = cat.type === 'income' ? '收入' : '支出';
+  if (choice.action === 'blocked') {
+    state.dialog = {
+      title: `先留着「${cat.name}」`,
+      message: `这是最后一个${kind}分类，下面还有 ${n} 笔账单。先新增一个分类，才能把这些账单挪走再删除。`,
+      confirmText: '知道了',
+      danger: false,
+      action: 'noop',
+    };
+    render({ keepScroll: true });
     return;
   }
-  const n = state.records.filter((r) => r.categoryId === id).length;
-  const fb = state.categories.find((c) => c.type === cat.type && c.isFallback);
+  if (choice.action === 'move') {
+    state.sheet = {
+      type: 'moveCat',
+      id: cat.id,
+      name: cat.name,
+      catType: cat.type,
+      count: n,
+      targetId: choice.others[0].id,
+    };
+    render({ keepScroll: true });
+    return;
+  }
   state.dialog = {
     title: `删除「${cat.name}」？`,
-    message: n
-      ? `有 ${n} 笔账单在用它。删除后会改记到「${fb?.name || '其他'}」。`
-      : '分类删掉后不能恢复。',
-    confirmText: n ? '删除并转移' : '删除',
+    message: '分类删掉后不能恢复。',
+    confirmText: '删除',
     danger: true,
     action: 'delete-cat',
     payload: { id },
@@ -429,14 +449,23 @@ async function confirmDeleteCat(id) {
   render({ keepScroll: true });
 }
 
-async function deleteCat(id) {
+async function deleteCat(id, targetId) {
   const cat = state.categories.find((c) => c.id === id);
-  const fb = state.categories.find((c) => c.type === cat?.type && c.isFallback);
+  if (!cat) return;
   const moved = state.records.filter((r) => r.categoryId === id);
-  if (moved.length && fb) {
+  let target = null;
+  if (moved.length) {
+    target = state.categories.find((c) => c.id === targetId && c.type === cat.type && c.id !== id);
+    if (!target) {
+      toast(categoryDeleteChoice(cat, state.categories, moved.length).action === 'blocked'
+        ? '这是最后一个分类，先新增一个再删除'
+        : '请选一个分类来接收这些账单');
+      return;
+    }
+    const now = Date.now();
     for (const r of moved) {
-      r.categoryId = fb.id;
-      r.updatedAt = Date.now();
+      r.categoryId = target.id;
+      r.updatedAt = now;
     }
     await db.bulkPutRecords(moved);
   }
@@ -447,7 +476,8 @@ async function deleteCat(id) {
     await db.putSettings(state.settings);
   }
   state.dialog = null;
-  toast('分类已删除');
+  state.sheet = null;
+  toast(target ? `已删除，${moved.length} 笔改记到「${target.name}」` : '分类已删除');
 }
 
 async function reorderCategories(from, to) {
@@ -497,6 +527,14 @@ async function confirmImport() {
   if (!sub || sub.name !== 'preview' || saving) return;
   const chosen = sub.rows.filter((r) => r.checked && r.cents > 0);
   if (!chosen.length) return;
+  const loose = chosen.filter((r) => {
+    const kind = r.type === 'income' ? 'income' : 'expense';
+    return !state.categories.some((c) => c.id === r.categoryId && c.type === kind);
+  });
+  if (loose.length) {
+    toast(`有 ${loose.length} 笔还没有分类。先新增一个分类，或在预览里选好再导入。`);
+    return;
+  }
   saving = true;
   const now = Date.now();
   const recs = chosen.map((r) => ({
@@ -589,8 +627,13 @@ async function onDialogOk() {
     await removeRecord(d.payload.id);
     return;
   }
+  if (d.action === 'noop') {
+    state.dialog = null;
+    render({ keepScroll: true });
+    return;
+  }
   if (d.action === 'delete-cat') {
-    await deleteCat(d.payload.id);
+    await deleteCat(d.payload.id, d.payload.targetId);
     return;
   }
   if (d.action === 'delete-savings') {
@@ -853,7 +896,18 @@ async function handle(act, el) {
     return;
   }
   if (act === 'cat-delete') {
-    await confirmDeleteCat(el.dataset.id);
+    confirmDeleteCat(el.dataset.id);
+    return;
+  }
+  if (act === 'move-target') {
+    if (state.sheet?.type === 'moveCat') {
+      state.sheet.targetId = el.dataset.id;
+      render({ keepScroll: true });
+    }
+    return;
+  }
+  if (act === 'confirm-move-cat') {
+    if (state.sheet?.type === 'moveCat') await deleteCat(state.sheet.id, state.sheet.targetId);
     return;
   }
   if (act === 'cat-color') {
@@ -983,6 +1037,9 @@ async function boot() {
     state.settings = loaded.settings ? { ...defaultSettings(), ...loaded.settings, key: 'settings' } : defaultSettings();
     state.settings.categoryBudgets = state.settings.categoryBudgets || {};
     if (!loaded.settings) await db.putSettings(state.settings);
+    const stripped = state.categories.filter((c) => Object.prototype.hasOwnProperty.call(c, 'isFallback'));
+    for (const c of stripped) delete c.isFallback;
+    if (stripped.length) await db.bulkPutCategories(stripped);
     state.ready = true;
   } catch (e) {
     state.ready = true;
