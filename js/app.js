@@ -677,6 +677,10 @@ async function onDialogOk() {
 }
 
 async function handle(act, el) {
+  if (act === 'apply-update') {
+    location.reload();
+    return;
+  }
   if (act === 'tab') {
     state.tab = el.dataset.tab;
     state.sub = null;
@@ -1124,18 +1128,36 @@ async function boot() {
       },
     };
   }
-  if ('serviceWorker' in navigator) {
-    const had = !!navigator.serviceWorker.controller;
-    navigator.serviceWorker.register('./sw.js').then((reg) => reg.update()).catch(() => {});
-    if (had) {
-      let refreshing = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (refreshing) return;
-        refreshing = true;
-        location.reload();
-      });
+  listenForAppUpdate();
+}
+
+function listenForAppUpdate() {
+  if (!('serviceWorker' in navigator)) return;
+  let reloading = false;
+  const hadController = !!navigator.serviceWorker.controller;
+  const applyUpdate = () => {
+    if (reloading) return;
+    if (state.sheet || state.dialog || state.busy) {
+      state.updateReady = true;
+      render({ keepScroll: true });
+      return;
     }
-  }
+    reloading = true;
+    location.reload();
+  };
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return;
+    applyUpdate();
+  });
+  const register = (options) => navigator.serviceWorker.register('./sw.js', options);
+  register({ scope: './', updateViaCache: 'none' })
+    .catch(() => register({ scope: './' }))
+    .then((reg) => {
+      if (!reg) return;
+      reg.update().catch(() => {});
+      if (reg.waiting && hadController) reg.waiting.postMessage({ type: 'skip-waiting' });
+    })
+    .catch(() => {});
 }
 
 function isKeypadControl(node) {

@@ -14,6 +14,18 @@ test('weeks run Monday through Sunday', () => {
   assert.match(period.label, /11月9日/);
 });
 
+test('weeks can cross the new year and months end on the last day', () => {
+  const first = periodOf('week', '2026-01-01');
+  assert.equal(first.startISO, '2025-12-29');
+  assert.equal(first.endISO, '2026-01-04');
+  const last = periodOf('week', '2026-12-31');
+  assert.equal(last.startISO, '2026-12-28');
+  assert.equal(last.endISO, '2027-01-03');
+  assert.equal(monthBounds(2026, 2).endISO, '2026-02-28');
+  assert.equal(monthBounds(2026, 11).startISO, '2026-11-01');
+  assert.equal(monthBounds(2026, 11).endISO, '2026-11-30');
+});
+
 test('sunday belongs to the week that started monday', () => {
   const period = periodOf('week', '2026-11-15');
   assert.equal(period.startISO, '2026-11-09');

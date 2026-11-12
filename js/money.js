@@ -21,7 +21,8 @@ function formatAbs(cents) {
 export function parseAmountToCents(raw) {
   if (typeof raw === 'number' && Number.isFinite(raw)) {
     const sign = raw < 0 ? -1 : 1;
-    return sign * Math.round(Math.abs(raw) * 100);
+    // Counter values like 19.99 and 0.1+0.2, which are slightly under their decimal.
+    return sign * Math.round(Math.abs(raw) * 100 + 1e-8);
   }
   let s = String(raw ?? '').trim();
   s = s.replace(/[`'"\s¥￥元,，]/g, '');

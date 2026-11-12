@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyKeypad, pressKey, commitCents, keypadFromCents } from '../js/keypad.js';
+import { parseAmountToCents } from '../js/money.js';
 
 function type(keys, start = emptyKeypad()) {
   return keys.reduce((s, k) => pressKey(s, k), start);
@@ -30,6 +31,16 @@ test('backspace and negative result', () => {
   assert.equal(s.current, '1');
   assert.equal(commitCents(type(['5', '-', '1', '0'])), null);
   assert.equal(commitCents(emptyKeypad()), null);
+});
+
+test('0.1 + 0.2 is 30 cents, and decimal amounts do not drift', () => {
+  assert.equal(commitCents(type(['0', '.', '1', '+', '0', '.', '2'])), 30);
+  assert.equal(parseAmountToCents(0.1 + 0.2), 30);
+  assert.equal(parseAmountToCents(1.15), 115);
+  assert.equal(parseAmountToCents(8.7), 870);
+  assert.equal(parseAmountToCents(19.99), 1999);
+  assert.equal(parseAmountToCents(1.005), 101);
+  assert.equal(parseAmountToCents('19.99'), 1999);
 });
 
 test('edit starts from existing cents', () => {

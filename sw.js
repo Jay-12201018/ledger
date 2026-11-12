@@ -1,5 +1,5 @@
-/* Cache version. Bump this when shipped files change so phones pick up the update. */
-const CACHE = 'ledger-v6';
+/* Bump CACHE whenever a shipped file changes. Phones keep this name until the new worker activates. */
+const CACHE = 'ledger-v7';
 
 const ASSETS = [
   './',
@@ -25,9 +25,20 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting()),
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    await Promise.all(ASSETS.map(async (path) => {
+      const url = new URL(path, self.location);
+      const res = await fetch(url, { cache: 'reload' });
+      if (!res.ok) throw new Error(`无法缓存 ${url.pathname}`);
+      await cache.put(url, res);
+    }));
+    await self.skipWaiting();
+  })());
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'skip-waiting') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {

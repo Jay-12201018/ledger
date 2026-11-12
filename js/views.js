@@ -45,6 +45,7 @@ export function renderApp(state) {
     ${sheetHtml(state)}
     ${dialogHtml(state)}
     ${state.busy ? `<div class="overlay busy-layer"><div class="busy">${esc(state.busy)}</div></div>` : ''}
+    ${state.updateReady ? '<button type="button" class="update-bar" data-act="apply-update">有新版本，点此刷新</button>' : ''}
     ${state.toast ? `<div class="toast ${state.sheet ? 'on-sheet' : ''}">${esc(state.toast)}</div>` : ''}
   </div>`;
 }
