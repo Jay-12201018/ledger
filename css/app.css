@@ -355,8 +355,8 @@ img, svg { display: block; }
   background: #fff; border-radius: 24px 24px 0 0;
   padding: 8px 16px calc(12px + env(safe-area-inset-bottom));
   max-height: min(92dvh, 820px); overflow: auto;
-  animation: rise .28s cubic-bezier(.2,.8,.2,1);
 }
+.sheet.rise { animation: rise .28s cubic-bezier(.2,.8,.2,1); }
 .sheet.entry { display: flex; flex-direction: column; overflow: hidden; }
 .sheet.entry .sheet-bar,
 .sheet.entry .expr,
@@ -366,11 +366,17 @@ img, svg { display: block; }
 .sheet.entry .keypad { flex-shrink: 0; }
 .sheet h2 { margin: 0; font-size: 17px; text-align: center; flex: 1; }
 .sheet-bar { display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
-.expr { text-align: center; color: var(--text-3); font-size: 13px; min-height: 18px; }
-.amount {
-  text-align: center; font-size: 42px; font-weight: 720; letter-spacing: -0.04em; line-height: 1.1;
+.expr {
+  height: 20px; line-height: 20px; overflow: hidden; white-space: nowrap;
+  text-align: center; color: var(--text-3); font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
-.amount span { font-size: 28px; margin-right: 2px; }
+.amount {
+  height: 52px; line-height: 52px; overflow: hidden; white-space: nowrap;
+  text-align: center; font-size: 42px; font-weight: 720; letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.amount .yen { font-size: 28px; margin-right: 2px; }
 .amount.income { color: var(--teal); }
 .cats {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 6px;
@@ -404,15 +410,22 @@ img, svg { display: block; }
 .link-danger {
   border: none; background: none; color: var(--red); font-size: 14px; padding: 4px 0 8px; font-weight: 600;
 }
-.keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding-top: 4px; }
+.keypad {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding-top: 4px;
+  touch-action: manipulation;
+}
 .key {
   height: 52px; border: none; border-radius: 12px; background: #F3F5F7;
   font-size: 22px; font-weight: 650; color: var(--text);
   display: grid; place-items: center;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
-.key:active { background: #E6E9ED; }
+.key:active { background: #E6E9ED; opacity: 0.82; }
 .key.go { background: var(--teal); color: #fff; font-size: 16px; font-weight: 750; }
-.key.go:active { background: var(--teal-press); }
+.key.go:active { background: var(--teal-press); opacity: 0.9; }
 
 .field { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; font-size: 13px; color: var(--text-2); }
 .field input, .field-label + .field input {

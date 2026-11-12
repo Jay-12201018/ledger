@@ -3,7 +3,7 @@ import * as db from './db.js';
 import {
   buildPresetCategories, defaultSettings, newId, resolveCategoryId,
 } from './categories.js';
-import { commitCents, emptyKeypad, keypadFromCents, pressKey } from './keypad.js';
+import { commitCents, displayText, emptyKeypad, expressionText, keypadFromCents, pressKey } from './keypad.js';
 import { isoDate, shiftAnchor } from './dates.js';
 import { parseYuanField, centsToYuanInput } from './money.js';
 import { parseBillBuffer } from './import-parse.js';
@@ -32,6 +32,9 @@ const state = {
 let toastTimer = 0;
 let drag = null;
 let saving = false;
+let sheetWasOpen = false;
+let keypadPointer = null;
+let keypadPointerAt = 0;
 
 function currentMonth(d = new Date()) {
   return { y: d.getFullYear(), m: d.getMonth() + 1 };
@@ -40,10 +43,34 @@ function currentMonth(d = new Date()) {
 function render(opts = {}) {
   const keep = !!opts.keepScroll;
   const y = keep ? (document.scrollingElement?.scrollTop || 0) : 0;
+  const open = !!state.sheet;
+  state.sheetEnter = open && !sheetWasOpen;
+  sheetWasOpen = open;
   const root = document.getElementById('root');
   root.innerHTML = renderApp(state);
   document.body.classList.toggle('noscroll', !!(state.sheet || state.dialog || state.busy));
   if (document.scrollingElement) document.scrollingElement.scrollTop = keep ? y : 0;
+}
+
+function paintEntryAmount() {
+  const sheet = state.sheet;
+  if (!sheet || sheet.type !== 'entry') return;
+  const expr = document.querySelector('.sheet.entry .expr');
+  const num = document.querySelector('.sheet.entry .amount .num');
+  if (expr) expr.textContent = expressionText(sheet.keypad) || '\u00a0';
+  if (num) num.textContent = displayText(sheet.keypad);
+}
+
+function applyKeypadKey(el) {
+  if (!state.sheet || state.sheet.type !== 'entry') return;
+  const act = el.dataset.act;
+  if (act === 'key') {
+    state.sheet.keypad = pressKey(state.sheet.keypad, el.dataset.key);
+    touchSheet();
+    paintEntryAmount();
+    return;
+  }
+  if (act === 'done') handle('done', el).catch(() => toast('没能完成，请再试一次'));
 }
 
 function toast(msg) {
@@ -633,7 +660,7 @@ async function handle(act, el) {
   if (act === 'key') {
     state.sheet.keypad = pressKey(state.sheet.keypad, el.dataset.key);
     touchSheet();
-    render({ keepScroll: true });
+    paintEntryAmount();
     return;
   }
   if (act === 'done') {
@@ -1008,11 +1035,41 @@ async function boot() {
   }
 }
 
+function isKeypadControl(node) {
+  const el = node && node.closest ? node.closest('.keypad .key') : null;
+  return el || null;
+}
+
 function bind() {
   const root = document.getElementById('root');
+  root.addEventListener('pointerdown', (e) => {
+    const key = isKeypadControl(e.target);
+    if (!key) return;
+    e.preventDefault();
+    keypadPointer = { id: e.pointerId, key };
+    try { key.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+  });
+  root.addEventListener('pointerup', (e) => {
+    if (!keypadPointer || keypadPointer.id !== e.pointerId) return;
+    const key = keypadPointer.key;
+    keypadPointer = null;
+    const hit = document.elementFromPoint(e.clientX, e.clientY);
+    if (hit && (hit === key || key.contains(hit))) {
+      keypadPointerAt = performance.now();
+      applyKeypadKey(key);
+    }
+  });
+  root.addEventListener('pointercancel', () => { keypadPointer = null; });
+  root.addEventListener('touchstart', (e) => {
+    if (isKeypadControl(e.target)) e.preventDefault();
+  }, { passive: false });
   root.addEventListener('click', (e) => {
     const el = e.target.closest('[data-act]');
     if (!el || !root.contains(el)) return;
+    if (isKeypadControl(el)) {
+      if (performance.now() - keypadPointerAt > 700) applyKeypadKey(el);
+      return;
+    }
     handle(el.dataset.act, el).catch(() => toast('没能完成，请再试一次'));
   });
   root.addEventListener('input', onField);

@@ -26,7 +26,10 @@ function bubble(cat, size = 18) {
   return `<span class="bubble" style="background:${color}">${svg(icon, size)}</span>`;
 }
 
+let sheetEnter = false;
+
 export function renderApp(state) {
+  sheetEnter = !!state.sheetEnter;
   if (!state.ready) {
     return `<div class="boot"><div class="boot-logo">账</div><p>${esc(state.error || '个人账本')}</p></div>`;
   }
@@ -488,7 +491,8 @@ function sheetHtml(state) {
 }
 
 function sheetWrap(inner, extra = '') {
-  return `<div class="overlay"><button type="button" class="backdrop" data-act="sheet-close" aria-label="关闭"></button><div class="sheet ${extra}" role="dialog">${inner}</div></div>`;
+  const cls = ['sheet', extra, sheetEnter ? 'rise' : ''].filter(Boolean).join(' ');
+  return `<div class="overlay"><button type="button" class="backdrop" data-act="sheet-close" aria-label="关闭"></button><div class="${cls}" role="dialog">${inner}</div></div>`;
 }
 
 function entrySheet(state, s) {
@@ -505,8 +509,8 @@ function entrySheet(state, s) {
       </div>
       <span class="icon-btn placeholder"></span>
     </div>
-    <div class="expr">${esc(expressionText(s.keypad) || ' ')}</div>
-    <div class="amount ${s.direction}"><span>¥</span>${esc(displayText(s.keypad))}</div>
+    <div class="expr">${esc(expressionText(s.keypad)) || '&nbsp;'}</div>
+    <div class="amount ${s.direction}"><span class="yen">¥</span><span class="num">${esc(displayText(s.keypad))}</span></div>
     <div class="cats">
       ${cats.map((c) => `<button type="button" class="cat ${c.id === s.categoryId ? 'on' : ''}" data-act="pick-cat" data-id="${esc(c.id)}" style="--c:${safeColor(c.color)}">
         <span class="bubble lg" style="background:${safeColor(c.color)}">${svg(safeIcon(c.icon), 22)}</span>
@@ -537,9 +541,9 @@ function entrySheet(state, s) {
     ${s.source && s.source !== 'manual' ? `<p class="hint tight">来自${s.source === 'wechat' ? '微信' : '支付宝'}账单${s.externalId ? ` · ${esc(s.externalId)}` : ''}</p>` : ''}
     <div class="keypad">
       ${keys.map((k) => {
-        if (k === 'done') return `<button type="button" class="key go" data-act="done">${s.mode === 'edit' ? '保存' : '完成'}</button>`;
+        if (k === 'done') return `<button type="button" class="key go" tabindex="-1" data-act="done">${s.mode === 'edit' ? '保存' : '完成'}</button>`;
         const face = k === 'back' ? svg('backspace', 22) : k === '-' ? '−' : k;
-        return `<button type="button" class="key" data-act="key" data-key="${k}">${face}</button>`;
+        return `<button type="button" class="key" tabindex="-1" data-act="key" data-key="${k}">${face}</button>`;
       }).join('')}
     </div>`, 'entry');
 }
